@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Professor - Live Realtime</title>
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen flex flex-col">
+
+    <header class="bg-slate-800 text-white shadow-md p-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-amber-400">Painel do Professor</h1>
+                <p class="text-xs text-slate-300 mt-0.5">Sincronização Direta Realtime Database</p>
+            </div>
+            <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-2.5 py-1 rounded font-bold animate-pulse">
+                ● LIVE SYNC
+            </span>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <!-- Tabela de Consolidação das Médias -->
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div class="flex justify-between items-center border-b pb-2 mb-4">
+                <h2 class="text-lg font-bold text-gray-900">Consolidação e Ranking das Equipes</h2>
+                <button id="btn-clear" class="text-xs text-red-600 hover:underline font-semibold">Limpar Dados do Banco</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 text-xs font-semibold uppercase text-gray-600 tracking-wider">
+                            <th class="p-3 rounded-l-lg">Mesa</th>
+                            <th class="p-3">Empresa</th>
+                            <th class="p-3 text-center">Nº Avaliações</th>
+                            <th class="p-3 text-center bg-amber-50 text-amber-800 rounded-r-lg font-bold">Média Final</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-summary-table" class="text-sm divide-y divide-gray-100">
+                        <tr><td colspan="4" class="p-4 text-center text-gray-400 italic">Conectando e escutando o Realtime Database...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Histórico e Lista Completa de Notas individuais -->
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-900 border-b pb-2 mb-4">Histórico Crítico de Feedbacks</h2>
+            <div id="admin-feedbacks-container" class="space-y-4"></div>
+        </div>
+
+    </main>
+
+    <footer class="bg-gray-100 border-t border-gray-200 text-center py-3 text-xs text-gray-500">
+        Monitoria e Consolidação Automática via Firebase.
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://gstatic.com";
+        import { getDatabase, ref, onValue, set } from "https://gstatic.com";
+
+        // ⚠️ SUBSTITUA PELAS MESMAS CREDENCIAIS DO SEU INDEX.HTML ⚠️
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "://firebaseapp.com",
+            databaseURL: "https://firebaseio.com",
+            projectId: "avalia-projetos",
+            storageBucket: "://appspot.com",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Referência global do nó de avaliações
+        const evaluationsRef = ref(db, "evaluations");
+
+        // Escuta reativa em tempo real
+        onValue(evaluationsRef, (snapshot) => {
+            const data = snapshot.val();
+            const rawData = [];
+            
+            if (data) {
+                // Transforma o objeto de objetos do Realtime em Array indexável
+                Object.keys(data).forEach(key => {
+                    rawData.push(data[key]);
+                });
+                // Ordena o histórico por ordem decrescente (mais recentes primeiro)
+                rawData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            }
+            
+            renderDashboard(rawData);
+        });
+
+        function renderDashboard(rawData) {
+            const summaryTable = document.getElementById('admin-summary-table');
+            const feedbacksContainer = document.getElementById('admin-feedbacks-container');
+
+            summaryTable.innerHTML = '';
+            feedbacksContainer.innerHTML = '';
+
+            if (rawData.length === 0) {
+                summaryTable.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400 italic">Nenhuma avaliação salva no Realtime Database ainda.</td></tr>`;
+                return;
+            }
+
+            // Agregação por Equipe para Médias
+            const teamsMap = {};
+            rawData.forEach(item => {
+                if (!teamsMap[item.team]) {
+                    teamsMap[item.team] = { name: item.team, company: item.company, totalScores: 0, count: 0 };
+                }
+                teamsMap[item.team].totalScores += item.average;
+                teamsMap[item.team].count += 1;
+                teamsMap[item.team].company = item.company; 
+            });
+
+            // Ordenação do Ranking
+            const rankedTeams = Object.values(teamsMap).sort((a, b) => (b.totalScores / b.count) - (a.totalScores / a.count));
+
+            rankedTeams.forEach(t => {
+                const finalAvg = (t.totalScores / t.count).toFixed(2);
+                summaryTable.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="p-3 font-semibold text-gray-900">${t.name}</td>
+                        <td class="p-3 text-gray-600">${t.company}</td>
+                        <td class="p-3 text-center text-gray-600">${t.count}</td>
+                        <td class="p-3 text-center bg-amber-50 font-bold text-amber-700">${finalAvg}</td>
+                    </tr>
+                `;
+            });
+
+            // Geração visual dos Feedbacks Individuais
+            rawData.forEach(item => {
+                const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleString('pt-BR') : '-';
+                feedbacksContainer.innerHTML += `
+                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 border-b pb-1.5">
+                            <div>
+                                <span class="font-bold text-slate-800">${item.team} [${item.company}]</span>
+                                <span class="text-xs text-gray-500 block sm:inline sm:ml-2">Avaliador: <b>${item.evaluator}</b></span>
+                            </div>
+                            <div class="text-xs text-right text-gray-400">
+                                <span class="inline-block bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded text-sm mr-2">Média: ${item.average.toFixed(2)}</span>
+                                ${dateStr}
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-600 italic">"${item.feedback || 'Sem comentários adicionais gravados.'}"</p>
+                    </div>
+                `;
+            });
+        }
+
+        // Função do Professor para limpar o banco limpando o nó evaluations
+        document.getElementById('btn-clear').addEventListener('click', async () => {
+            if (confirm('Atenção: Deseja realmente zerar todos os registros de avaliações do Realtime Database?')) {
+                try {
+                    await set(ref(db, "evaluations"), null);
+                    alert('Banco resetado com sucesso!');
+                } catch (error) {
+                    console.error("Erro ao resetar banco:", error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+

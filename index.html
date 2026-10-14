@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaliação de Projetos</title>
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen flex flex-col">
+
+    <header class="bg-indigo-600 text-white shadow-md p-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">Painel do Avaliador</h1>
+                <p class="text-xs text-indigo-200 mt-0.5">Mesa Temática / Apresentação de Soluções</p>
+            </div>
+            <span class="bg-indigo-700 text-xs px-3 py-1.5 rounded-md font-medium border border-indigo-500 text-indigo-100">
+                🌐 Realtime DB Conectado
+            </span>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-6xl w-full mx-auto p-4 sm:p-6">
+        <section class="space-y-6">
+            <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-gray-900 border-b pb-2 mb-4">Nova Avaliação</h2>
+                <form id="form-evaluation" class="space-y-6">
+                    
+                    <!-- Identificação Básica -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Seu Nome (Avaliador)</label>
+                            <input type="text" id="eval-name" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ex: Prof. Carlos">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Mesa / Equipe Avaliada</label>
+                            <select id="team-name" required class="w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Selecione uma mesa...</option>
+                                <option value="Mesa 1">Mesa 1</option>
+                                <option value="Mesa 2">Mesa 2</option>
+                                <option value="Mesa 3">Mesa 3</option>
+                                <option value="Mesa 4">Mesa 4</option>
+                                <option value="Mesa 5">Mesa 5</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Nome Fictício da Empresa</label>
+                            <input type="text" id="company-name" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ex: TechSolutions">
+                        </div>
+                    </div>
+
+                    <!-- Bloco de Critérios Dinâmicos -->
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-bold text-gray-600 uppercase tracking-wider mb-4">Critérios de Avaliação (Notas de 0 a 10)</h3>
+                        <div id="criteria-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+
+                    <!-- Comentários Adicionais -->
+                    <div class="border-t pt-4">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Feedback ou Observações (Opcional)</label>
+                        <textarea id="eval-feedback" rows="3" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Pontos fortes, melhorias..."></textarea>
+                    </div>
+
+                    <!-- Botão de Envio -->
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" id="btn-submit" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2.5 rounded-lg shadow transition-colors">
+                            Concluir e Enviar Avaliação
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-100 border-t border-gray-200 text-center py-3 text-xs text-gray-500">
+        Grade de Critérios Baseada nas Diretrizes de Apresentação da Equipe.
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://gstatic.com";
+        import { getDatabase, ref, push } from "https://gstatic.com";
+
+        // ⚠️ SUBSTITUA PELAS CREDENCIAIS DO SEU WEB APP GERADAS NO FIREBASE ⚠️
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "://firebaseapp.com",
+            databaseURL: "https://firebaseio.com",
+            projectId: "avalia-projetos",
+            storageBucket: "://appspot.com",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const criteriaList = [
+            { id: 'c1', title: '1. Nome da Empresa', desc: 'Criatividade, originalidade e adequação ao tema proposta.' },
+            { id: 'c2', title: '2. Identidade Visual (Logo)', desc: 'Design, clareza e aplicação prática da identidade visual.' },
+            { id: 'c3', title: '3. Apresentação Canva', desc: 'Estruturação dos slides, estética visual e fluidez gráfica.' },
+            { id: 'c4', title: '4. Storytelling da Dor', desc: 'Capacidade de contar uma história envolvendo e prender a atenção.' },
+            { id: 'c5', title: '5. Mapeamento da Dor', desc: 'Clareza em expor o problema real e a urgência da resolução.' },
+            { id: 'c6', title: '6. Qualidade da Solução', desc: 'Se o sistema de fato resolve o problema mapeado de forma lógica.' },
+            { id: 'c7', title: '7. Mockup Visual', desc: 'Fidelidade visual, acabamento e interface da solução proposta.' },
+            { id: 'c8', title: '8. Apresentação em Equipe', desc: 'Sinergia, postura, engajamento e clareza na fala do grupo.' },
+            { id: 'c9', title: '9. Alinhamento de Escopo', desc: 'Cumprimento de todos os requisitos listados na atividade.' },
+            { id: 'c10', title: '10. Tempo e Objetividade', desc: 'Capacidade de síntese e entrega das ideias centrais de forma ágil.' }
+        ];
+
+        function initForm() {
+            const container = document.getElementById('criteria-container');
+            container.innerHTML = '';
+            criteriaList.forEach(c => {
+                container.innerHTML += `
+                    <div class="p-3 bg-gray-50 border rounded-xl flex flex-col justify-between">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-800">${c.title}</h4>
+                            <p class="text-xs text-gray-500 mb-2">${c.desc}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="${c.id}" min="0" max="10" step="0.5" value="7" 
+                                class="w-full accent-indigo-600 h-2 bg-gray-200 rounded-lg cursor-pointer"
+                                oninput="document.getElementById('val-${c.id}').innerText = this.value">
+                            <span class="w-8 text-right font-bold text-sm text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded" id="val-${c.id}">7</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        document.getElementById('form-evaluation').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerText = "Gravando no Banco...";
+
+            const scores = {};
+            let sum = 0;
+            criteriaList.forEach(c => {
+                const val = parseFloat(document.getElementById(c.id).value);
+                scores[c.id] = val;
+                sum += val;
+            });
+
+            const evaluation = {
+                evaluator: document.getElementById('eval-name').value,
+                team: document.getElementById('team-name').value,
+                company: document.getElementById('company-name').value,
+                scores: scores,
+                feedback: document.getElementById('eval-feedback').value,
+                average: sum / criteriaList.length,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                // Envia para o nó 'evaluations' gerando uma id automática
+                await push(ref(db, "evaluations"), evaluation);
+                alert('Avaliação enviada com sucesso para a nuvem!');
+                document.getElementById('form-evaluation').reset();
+                initForm();
+            } catch (error) {
+                console.error("Erro ao enviar:", error);
+                alert('Ocorreu um erro ao registrar as notas no Realtime Database.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Concluir e Enviar Avaliação";
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
+
+        initForm();
+    </script>
+</body>
+</html>
